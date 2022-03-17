@@ -1,102 +1,199 @@
 const router = require('express').Router();
-const database = include('databaseConnection');
-const dbModel = include('databaseAccessLayer');
+const userModel = include("models/web_user");
+const petModel = include("models/pet");
+const pet_typeModel = include("models/pet_type");
+
+const crypto = require("crypto");
+const {v4: uuid} = require("uuid");
+
+const passwordPepper = "SeCretPeppa4MySal+";
+// const database = include('databaseConnection');
+// const dbModel = include('databaseAccessLayer');
 //const dbModel = include('staticData');
 
-router.get('/', (req, res) => {
+router.get("/", async (req, res) => {
 	console.log("page hit");
-	database.getConnection(function (err, dbConnection) {
-		if (err) {
-			res.render('error', {message: 'Error connecting to MySQL'});
-			console.log("Error connecting to mysql");
-			console.log(err);
-		}
-		else {
-			
-			dbModel.getAllUsers((err, result) => {
-				if (err) {
-					res.render('error', {message: 'Error reading from MySQL'});
-					console.log("Error reading from mysql");
-					console.log(err);
-				}
-				else { //success
-					res.render('index', {allUsers: result});
-
-					//Output the results of the query to the Heroku Logs
-					console.log(result);
-				}
-			});
-			dbConnection.release();
-		}
-	});
-
+	try {
+		const users = await userModel.findAll({attributes:
+		["web_user_id","first_name","last_name","email"]}); //{where: {web_user_id: 1}}
+	if (users === null) {
+		res.render("error", {message: "Error connecting to MySQL"});
+		console.log("Error connecting to userModel");
+	} else {
+		console.log(users);
+		res.render("index", {allUsers: users});
+	}
+}
+catch(ex) {
+	res.render("error", {message: "Error connecting to MySQL"});
+	console.log("Error connecting to MySQL");
+	console.log(ex);
+}
 });
 
-router.post('/addUser', (req, res) => {
-	console.log("form submit");
-	database.getConnection(function (err, dbConnection) {
-		if (err) {
-			res.render('error', {message: 'Error connecting to MySQL'});
-			console.log("Error connecting to mysql");
-			console.log(err);
+router.get("/deleteUser", async (req, res) => {
+	try {
+		console.log("delete user");
+		let userID = req.query.id;
+		if(userID) {
+			console.log("userID: "+userID);
+			let deleteUser = await userModel.findByPk(userID);
+			console.log("deleteUser: ");
+			console.log(deleteUser);
+			if(deleteUser !== null) {
+				await deleteUser.destroy();
+			}
 		}
-		else {
-			console.log(req.body);
-			dbModel.addUser(req.body, (err, result) => {
-				if (err) {
-					res.render('error', {message: 'Error writing to MySQL'});
-					console.log("Error writing to mysql");
-					console.log(err);
-				}
-				else { //success
-					res.redirect("/");
-
-					//Output the results of the query to the Heroku Logs
-					console.log(result);
-				}
-			});
-			
-			dbConnection.release();
-		}
-	});
-
+		res.redirect("/")
+	}
+	catch(ex){
+		res.render("error", {message: "Error connecting to MySQL"});
+		console.log("Error connecting to MySQL");
+		console.log(ex);
+	}
 });
 
-router.get('/deleteUser', (req, res) => {
-	console.log("delete user");
-	database.getConnection(function (err, dbConnection) {
-		if (err) {
-			res.render('error', {message: 'Error connecting to MySQL'});
-			console.log("Error connecting to mysql");
-			console.log(err);
-		}
-		else {
-			console.log(req.query);
-
-			let userId = req.query.id;
-			if (userId) {
-				dbModel.deleteUser(userId, (err, result) => {
-					if (err) {
-						res.render('error', {message: 'Error writing to MySQL'});
-						console.log("Error writing to mysql");
-						console.log(err);
-					}
-					else { //success
-						res.redirect("/");
-
-						//Output the results of the query to the Heroku Logs
-						console.log(result);
-					}
-				});
+router.post("/addUser", async (req, res) => {
+	try{
+		console.log("form submit");
+		const password_salt = crypto.createHash("sha512");
+		password_salt.update(uuid());
+		const password_hash = crypto.createHash("sha512");
+		password_hash.update(req.body.password+passwordPepper+password_salt);
+		let newUser = userModel.build(
+			{
+				first_name: req.body.first_name,
+				last_name: req.body.last_name,
+				email: req.body.email,
+				password_salt: password_salt.digest("hex"),
+				password_hash: password_hash.digest("hex")
 			}
-			else {
-				res.render('error', {message: 'Error on Delete'});
-			}
+		);
+		await newUser.save();
+		res.redirect("/")
+	}
+	catch(ex) {
+		res.render("error", {message: "Error connecting to MySQL"});
+		console.log("Error connecting to MySQL");
+		console.log(ex);
+	}
+});
+
+
+
+router.get("/pet", async (req, res) => {
+	console.log("page hit");
+	try {
+		const pets = await petModel.findAll({attributes:
+		["pet_id","name"]}); //{where: {pet_id: 1}}
+	if (pets === null) {
+		res.render("error", {message: "Error connecting to MySQL"});
+		console.log("Error connecting to userModel");
+	} else {
+		console.log(pets);
+		res.render("pet", {allPets: pets});
+	}
+}
+catch(ex) {
+	res.render("error", {message: "Error connecting to MySQL"});
+	console.log("Error connecting to MySQL");
+	console.log(ex);
+}
+});
+// router.get('/', (req, res) => {
+// 	console.log("page hit");
+// 	database.getConnection(function (err, dbConnection) {
+// 		if (err) {
+// 			res.render('error', {message: 'Error connecting to MySQL'});
+// 			console.log("Error connecting to mysql");
+// 			console.log(err);
+// 		}
+// 		else {
+			
+// 			dbModel.getAllUsers((err, result) => {
+// 				if (err) {
+// 					res.render('error', {message: 'Error reading from MySQL'});
+// 					console.log("Error reading from mysql");
+// 					console.log(err);
+// 				}
+// 				else { //success
+// 					res.render('index', {allUsers: result});
+
+// 					//Output the results of the query to the Heroku Logs
+// 					console.log(result);
+// 				}
+// 			});
+// 			dbConnection.release();
+// 		}
+// 	});
+
+// });
+
+// router.post('/addUser', (req, res) => {
+// 	console.log("form submit");
+// 	database.getConnection(function (err, dbConnection) {
+// 		if (err) {
+// 			res.render('error', {message: 'Error connecting to MySQL'});
+// 			console.log("Error connecting to mysql");
+// 			console.log(err);
+// 		}
+// 		else {
+// 			console.log(req.body);
+// 			dbModel.addUser(req.body, (err, result) => {
+// 				if (err) {
+// 					res.render('error', {message: 'Error writing to MySQL'});
+// 					console.log("Error writing to mysql");
+// 					console.log(err);
+// 				}
+// 				else { //success
+// 					res.redirect("/");
+
+// 					//Output the results of the query to the Heroku Logs
+// 					console.log(result);
+// 				}
+// 			});
+			
+// 			dbConnection.release();
+// 		}
+// 	});
+
+// });
+
+// router.get('/deleteUser', (req, res) => {
+// 	console.log("delete user");
+// 	database.getConnection(function (err, dbConnection) {
+// 		if (err) {
+// 			res.render('error', {message: 'Error connecting to MySQL'});
+// 			console.log("Error connecting to mysql");
+// 			console.log(err);
+// 		}
+// 		else {
+// 			console.log(req.query);
+
+// 			let userId = req.query.id;
+// 			if (userId) {
+// 				dbModel.deleteUser(userId, (err, result) => {
+// 					if (err) {
+// 						res.render('error', {message: 'Error writing to MySQL'});
+// 						console.log("Error writing to mysql");
+// 						console.log(err);
+// 					}
+// 					else { //success
+// 						res.redirect("/");
+
+// 						//Output the results of the query to the Heroku Logs
+// 						console.log(result);
+// 					}
+// 				});
+// 			}
+// 			else {
+// 				res.render('error', {message: 'Error on Delete'});
+// 			}
 		
-			dbConnection.release();
-		}
-	});
-});
+// 			dbConnection.release();
+// 		}
+// 	});
+// });
 
 
 module.exports = router;
