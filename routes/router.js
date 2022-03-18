@@ -100,6 +100,29 @@ catch(ex) {
 	console.log(ex);
 }
 });
+
+router.get("/showPets", async (req, res) => {
+	console.log("Page hit");
+	try {
+		let userID = req.query.id;
+		const user = await userModel.findByPk(userID);
+		if (user === null) {
+			res.render("error", {message: "Error connecting to MySQL"});
+			console.log("Error connecting to userModel");
+		} else {
+			let pets = await user.getPets();
+			console.log(pets);
+			let owner = await pets[0].getOwner();
+			console.log(owner);
+			res.render("showPets", {allPets: pets});
+		}
+	}
+	catch(ex) {
+		res.render("error", {message: "Error connecting to MySQL"});
+		console.log("Error connecting to MySQL");
+		console.log(ex);
+	}
+})
 // router.get('/', (req, res) => {
 // 	console.log("page hit");
 // 	database.getConnection(function (err, dbConnection) {
